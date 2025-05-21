@@ -173,11 +173,23 @@ void enterRoom(Player* player, Room* room) {
 }
 
 void playGame(Room** rooms, int roomCount, Player* player) {
-    int choice;
+    char input[16];
+    char filename[64];
+
     while (1) {
         enterRoom(player, player->currentRoom);
-        printf("Kies een kamer om naartoe te gaan: ");
-        scanf("%d", &choice);
+        printf("Typ een kamernummer of 's' om op te slaan: ");
+        scanf("%s", input);
+
+        if (strcmp(input, "s") == 0 ) {
+            printf("Voer bestandsnaam in om op te slaan: ");
+            scanf("%s", filename);
+            saveGame(player, rooms, roomCount, filename);
+            printf("Spel opgeslagen in %s.\n", filename);
+            continue;
+        }
+
+        int choice = atoi(input);  
 
         int valid = 0;
         for (int i = 0; i < player->currentRoom->connectionCount; i++) {
@@ -239,7 +251,7 @@ void cleanup(Room** rooms, int count) {
 int main(int argc, char* argv[]) {
     srand(time(NULL));
     if (argc < 3) {
-        printf("Gebruik: %s new <kamers> | load <bestand>\n", argv[0]);
+        printf("Gebruik: .\\dungeon.exe new <kamers> | load <bestand>\n", argv[0]);
         return 1;
     }
 
@@ -256,7 +268,7 @@ int main(int argc, char* argv[]) {
         generateDungeon(rooms, roomCount);
         player.currentRoom = rooms[0];
     } else if (strcmp(argv[1], "load") == 0) {
-        roomCount = 100; // aanname
+        roomCount = 100; 
         rooms = malloc(sizeof(Room*) * roomCount);
         loadGame(&player, rooms, roomCount, argv[2]);
     } else {
