@@ -50,7 +50,7 @@ void cleanup(Room** rooms, int roomCount);
 Room* createRoom(int id) {
     Room* room = malloc(sizeof(Room));
     room->id = id;
-    room->connections = malloc(sizeof(Room*) * 4);
+    room->connections = malloc(sizeof(Room*) * 8);
     room->connectionCount = 0;
     room->item = NULL;
     room->monster = NULL;
@@ -60,18 +60,26 @@ Room* createRoom(int id) {
 }
 
 void connectRooms(Room* a, Room* b) {
-    if (a->connectionCount < 4 && b->connectionCount < 4) {
+    for (int i = 0; i < a->connectionCount; i++) {
+        if (a->connections[i] == b) return; 
+    }
+    for (int i = 0; i < b->connectionCount; i++) {
+        if (b->connections[i] == a) return; 
+    }
+
+    if (a->connectionCount < 8 && b->connectionCount < 8) {
         a->connections[a->connectionCount++] = b;
         b->connections[b->connectionCount++] = a;
     }
 }
+
 
 Item* randomItem() {
     if (rand() % 2 == 0) return NULL;
 
     Item* item = malloc(sizeof(Item));
     if (rand() % 2) {
-        strcpy(item->name, "Healing Potion");
+        strcpy(item->name, "Health Potion");
         item->type = HEAL;
         item->value = rand() % 10 + 5;
     } else {
@@ -107,7 +115,7 @@ void generateDungeon(Room** rooms, int count) {
         rooms[i]->item = randomItem();
         rooms[i]->monster = randomMonster();
     }
-    rooms[rand() % count]->hasTreasure = 1; 
+    rooms[rand() % count]->hasTreasure = 1;
 }
 
 void fight(Player* player, Monster* monster) {
@@ -178,19 +186,21 @@ void playGame(Room** rooms, int roomCount, Player* player) {
 
     while (1) {
         enterRoom(player, player->currentRoom);
-        printf("Typ een kamernummer of 's' om op te slaan: ");
+        printf("Typ een kamernummer, 's' om op te slaan, of 'q' om te stoppen: ");
         scanf("%s", input);
 
-        if (strcmp(input, "s") == 0 ) {
+        if (strcmp(input, "s") == 0) {
             printf("Voer bestandsnaam in om op te slaan: ");
             scanf("%s", filename);
             saveGame(player, rooms, roomCount, filename);
             printf("Spel opgeslagen in %s.\n", filename);
             continue;
+        } else if (strcmp(input, "q") == 0) {
+            printf("Spel afgesloten.\n");
+            break;
         }
 
-        int choice = atoi(input);  
-
+        int choice = atoi(input);
         int valid = 0;
         for (int i = 0; i < player->currentRoom->connectionCount; i++) {
             if (player->currentRoom->connections[i]->id == choice) {
@@ -218,14 +228,24 @@ void saveGame(Player* player, Room** rooms, int count, const char* filename) {
 
 void loadGame(Player* player, Room** rooms, int count, const char* filename) {
     FILE* f = fopen(filename, "r");
-    int roomId, visited, treasure, connCount, connId;
-    fscanf(f, "%d %d %d %d", &roomId, &player->health, &player->baseDamage, &player->bonusDamage);
+    if (!f) {
+        printf("Kan bestand niet openen.\n");
+        exit(1);
+    }
+
+    int currentRoomId;
+    fscanf(f, "%d %d %d %d", &currentRoomId, &player->health, &player->baseDamage, &player->bonusDamage);
 
     for (int i = 0; i < count; i++) {
         rooms[i] = createRoom(i);
     }
 
     for (int i = 0; i < count; i++) {
+        rooms[i]->connectionCount = 0;
+    }
+
+    for (int i = 0; i < count; i++) {
+        int roomId, visited, treasure, connCount, connId;
         fscanf(f, "%d %d %d %d", &roomId, &visited, &treasure, &connCount);
         rooms[roomId]->visited = visited;
         rooms[roomId]->hasTreasure = treasure;
@@ -235,9 +255,10 @@ void loadGame(Player* player, Room** rooms, int count, const char* filename) {
         }
     }
 
-    player->currentRoom = rooms[roomId];
+    player->currentRoom = rooms[currentRoomId];
     fclose(f);
 }
+
 
 void cleanup(Room** rooms, int count) {
     for (int i = 0; i < count; i++) {
@@ -246,12 +267,13 @@ void cleanup(Room** rooms, int count) {
         free(rooms[i]->connections);
         free(rooms[i]);
     }
+    free(rooms);
 }
 
 int main(int argc, char* argv[]) {
     srand(time(NULL));
     if (argc < 3) {
-        printf("Gebruik: .\\dungeon.exe new <kamers> | load <bestand>\n", argv[0]);
+        printf("Gebruik: %s new <kamers> | load <bestand>\n", argv[0]);
         return 1;
     }
 
@@ -268,7 +290,7 @@ int main(int argc, char* argv[]) {
         generateDungeon(rooms, roomCount);
         player.currentRoom = rooms[0];
     } else if (strcmp(argv[1], "load") == 0) {
-        roomCount = 100; 
+        roomCount = 100;
         rooms = malloc(sizeof(Room*) * roomCount);
         loadGame(&player, rooms, roomCount, argv[2]);
     } else {
